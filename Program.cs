@@ -1,7 +1,18 @@
-﻿using System;
+﻿/*****************************************************************\
+	Markov Chain Based Text Generator
+		Copyright (c) Kira "Siri" K. 2022
+		Source code available under the Mozilla Public License.
+		See the LICENSE file for more information.
+		If a LICENSE file was not provided with this source code,
+			visit github.com/siri-chan/markov and review the
+			LICENSE there.
+\*****************************************************************/
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Runtime.Serialization;
 
 namespace Siri.markov {
 	class Program {
@@ -11,9 +22,16 @@ namespace Siri.markov {
 			var checksum = GetChecksum(cfg.workingDir + "/list.txt");
 			Cache cache;
 			if (cfg.useCache){
-				cache = Cache.load(cfg);
-				if (checksum != cache.list_checksum)
+				try {
+					cache = Cache.load();
+					if (checksum != cache.list_checksum) {
+						cache = new Cache(checksum);
+					} else {
+						cache = Cache.load();
+					}
+				} catch (Exception e) {
 					cache = new Cache(checksum);
+				}
 			} else {
 				cache = new Cache(checksum);
 			}
@@ -36,6 +54,8 @@ namespace Siri.markov {
 
 			string buf = curWord;
 			while(true){
+				if(cfg.useCache)
+					cache.save();
 				for (int k = 0; k < cfg.length; k++){
 					FreqTable freq;
 					if (cache.frequencies.ContainsKey(curWord) && cache.frequencies[curWord].curWord == curWord){
@@ -76,7 +96,7 @@ namespace Siri.markov {
 			foreach (string line in lines){
 				_words.AddRange(line.Split(" "));
 			}
-			for (int i = 0; i < _words.Count; i++){
+			for (int i = 0; i < _words.Count - 1; i++){ // this crashes sometimes if the last word of the file is chosen, thats why there is a -1 here
 				if (_words[i] != curWord || _words[i+1] == null) continue;
 				table.words.Add(_words[i+1]);
 			}
@@ -84,6 +104,7 @@ namespace Siri.markov {
 		}
 	}
 
+	[System.Serializable]
 	public struct FreqTable {
 		public string curWord;
 		public List</*FreqPair*/ string> words; //pairs;
@@ -96,17 +117,43 @@ namespace Siri.markov {
 	}
 	*/
 
+	[System.Serializable]
 	public class Cache {
 		public string list_checksum;
 		public List<string> firstWords = new List<string>();
 		public Dictionary<string, FreqTable> frequencies = new Dictionary<string, FreqTable>();
-		public static Cache load(Config cfg){
-			//use cfg to get working dir
-			return new Cache(""); // todo stub
+		public static Cache load(){
+			FileStream file = new FileStream(".cache", FileMode.OpenOrCreate);
+			Cache cache = null;
+			try {
+				BinaryFormatter formatter = new BinaryFormatter();
+
+				// Deserialize the hashtable from the file and
+				// assign the reference to the local variable.
+				cache = (Cache) formatter.Deserialize(file);
+			} catch (SerializationException e) {
+				Console.WriteLine("Failed to deserialize. Reason: " + e.Message);
+				throw;
+			} finally {
+				file.Close();
+			}
+			return cache;
 		}
 		public Cache(string checksum){
 			this.list_checksum = checksum;
 			// todo stub
+		}
+		public void save(){
+			FileStream file = new FileStream(".cache", FileMode.Truncate);
+			BinaryFormatter formatter = new BinaryFormatter();
+			try {
+				formatter.Serialize(file, this);
+			} catch (SerializationException e) {
+				Console.WriteLine("Failed to serialize. Reason: " + e.Message);
+				throw;
+			} finally {
+				file.Close();
+			}
 		}
 	}
 
