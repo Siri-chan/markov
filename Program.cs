@@ -17,7 +17,12 @@ using System.Runtime.Serialization;
 namespace Siri.markov {
 	class Program {
 		static void Main(string[] args) {
-			Config cfg = new ConfigBuilder().setWorkingDirectory("E:/markov_test").build();
+
+			Config cfg = new ConfigBuilder().build();
+
+			//This line is for my personal test setup. You probably want the line above
+			//Config cfg = new ConfigBuilder().setWorkingDirectory("E:/markov_test").build();
+
 			//todo try/catch this and make sure file esxists
 			var checksum = GetChecksum(cfg.workingDir + "/list.txt");
 			Cache cache;
